@@ -3962,12 +3962,14 @@ def add_waste_heat(n):
             options["use_electrolysis_waste_heat"]
             and "H2 Electrolysis" in link_carriers
         ):
-            n.links.loc[urban_central + " H2 Electrolysis", "bus2"] = (
-                urban_central + " urban central heat"
-            )
-            n.links.loc[urban_central + " H2 Electrolysis", "efficiency2"] = (
-                0.84 - n.links.loc[urban_central + " H2 Electrolysis", "efficiency"]
-            ) * options["use_electrolysis_waste_heat"]
+            for bus in urban_central:
+                if bus in options["electrolysis_waste_heat_buses"]:
+                    n.links.loc[bus + " H2 Electrolysis", "bus2"] = (
+                            bus + " urban central heat"
+                    )
+                    n.links.loc[bus + " H2 Electrolysis", "efficiency2"] = (
+                    0.84 - n.links.loc[bus + " H2 Electrolysis", "efficiency"]
+                    ) * options["use_electrolysis_waste_heat"]
 
         if options["use_fuel_cell_waste_heat"] and "H2 Fuel Cell" in link_carriers:
             n.links.loc[urban_central + " H2 Fuel Cell", "bus2"] = (

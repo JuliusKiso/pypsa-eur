@@ -666,6 +666,7 @@ sector:
   use_methanation_waste_heat: 0.25
   use_fuel_cell_waste_heat: 0.25
   use_electrolysis_waste_heat: 0.25
+  electrolysis_waste_heat_buses: ["DE0 0", "DE0 1", "DE0 12", "DE0 24"]
   electricity_transmission_grid: true
   electricity_distribution_grid: true
   electricity_grid_connection: true
