@@ -3968,7 +3968,7 @@ def add_waste_heat(n):
             and "H2 Electrolysis" in link_carriers
         ):
             for bus in urban_central:
-                if bus in options["electrolysis_waste_heat_buses"]:
+                if bus not in options["no_electrolysis_waste_heat_buses"]:
                     n.links.loc[bus + " H2 Electrolysis", "bus2"] = (
                             bus + " urban central heat"
                     )
