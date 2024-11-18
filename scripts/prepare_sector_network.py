@@ -1602,6 +1602,10 @@ def add_storage_and_grids(n, costs):
         )
 
         # TODO Add efficiency losses
+
+        if options["remove_interconnecting_H2_pipes"]:
+            h2_pipes = h2_pipes[h2_pipes["bus0"].str[:2] == h2_pipes["bus1"].str[:2]]
+
         n.add(
             "Link",
             h2_pipes.index,
