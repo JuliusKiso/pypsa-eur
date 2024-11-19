@@ -99,9 +99,11 @@ Upcoming Release
   - Substation interior point now based on Pole of Inaccessibility (doi.org/10.1080/14702540801897809)
   - Substation radius sharpened to 500 meters
   - Single transformers for each combination of voltage level per substation. Transformers now have a capacity s_nom based on connected lines
-  - Use of OSM relations where available and unambigious (Overwriting all lines that are members of the respective relation to avoid duplicates)
+  - Use of OSM relations where available and unambiguous (Overwriting all lines that are members of the respective relation to avoid duplicates)
 
 * Updated osm-prebuilt base network to version 0.5, for changelog, see https://zenodo.org/records/13981528
+
+* Bugfix: vehicle-to-grid dispatch capacity is now limited by the fraction of vehicles participating in demand-side-management, halving the dispatch capacity under the default demand-side management participation rate of 0.5.
 
 
 PyPSA-Eur 0.13.0 (13th September 2024)
