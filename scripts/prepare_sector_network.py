@@ -1350,7 +1350,7 @@ def add_electricity_grid_connection(n, costs):
     ]
 
 def add_extra_h2_load(n, costs):
-    #TODO:only nodes inside 50hertz
+
     nodes = pop_layout.index
 
     nodes = nodes[~nodes.str.contains("0 0")] #only 50hertz nodes
@@ -1369,16 +1369,20 @@ def add_extra_h2_load(n, costs):
         lifetime=costs.at["electrolysis", "lifetime"],
     )
 
+
+    end_value = options["extra_h2_load"]
+    state_of_charge_set = np.full(n.snapshots.nunique(), np.nan)
+    state_of_charge_set[-1] = end_value
+
     n.add(
         "StorageUnit",
         "H2 Extra Storage",
         bus="H2_extra_load",
-        p_nom=2000,
+        p_nom_extendable=True,
         state_of_charge_initial=0,
         cyclic_state_of_charge=False,
+        state_of_charge_set=state_of_charge_set
     )
-
-    n.storage_units_t.state_of_charge_set.loc[n.snapshots[23], "H2 Extra Storage"]=options["extra_h2_load"]
 
 def add_storage_and_grids(n, costs):
     logger.info("Add hydrogen storage")
@@ -1644,7 +1648,7 @@ def add_storage_and_grids(n, costs):
             p_min_pu=-1,
             p_nom_extendable=True,
             length=h2_pipes.length.values,
-            capital_cost=costs.at["H2 (g) pipeline", "fixed"] * h2_pipes.length.values * 1000,
+            capital_cost=costs.at["H2 (g) pipeline", "fixed"] * h2_pipes.length.values * options["pipeline_CAPEX_factor"],
             carrier="H2 pipeline",
             lifetime=costs.at["H2 (g) pipeline", "lifetime"],
         )
