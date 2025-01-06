@@ -1369,10 +1369,12 @@ def add_extra_h2_load(n, costs):
         lifetime=costs.at["electrolysis", "lifetime"],
     )
 
-
-    end_value = options["extra_h2_load"]
-    state_of_charge_set = np.full(n.snapshots.nunique(), np.nan)
-    state_of_charge_set[-1] = end_value
+    if options["constant_extra_h2_load"]: #constant H2 load
+        state_of_charge_set = np.full(n.snapshots.nunique(), options["extra_h2_load"] / 8760)
+    else:
+        end_value = options["extra_h2_load"] #H2 load only needs to be satisfied in the end
+        state_of_charge_set = np.full(n.snapshots.nunique(), np.nan)
+        state_of_charge_set[-1] = end_value
 
     n.add(
         "StorageUnit",
@@ -1404,6 +1406,13 @@ def add_storage_and_grids(n, costs):
         capital_cost=costs.at["electrolysis", "fixed"],
         lifetime=costs.at["electrolysis", "lifetime"],
     )
+
+    for i in nodes[~nodes.str.contains("0 0")]:
+        link_name = i + " H2 Electrolysis"
+        if link_name in n.links.index:
+            n.links.at[link_name, "p_nom_max"] = 1000
+        else:
+            print(f"Warning: Link '{link_name}' not found in network.")
 
     if options["hydrogen_fuel_cell"]:
         logger.info("Adding hydrogen fuel cell for re-electrification.")
