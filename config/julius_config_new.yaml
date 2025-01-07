@@ -21,9 +21,11 @@ remote:
 # docs in https://pypsa-eur.readthedocs.io/en/latest/configuration.html#run
 run:
   prefix: ""
-  name: ""
+  name:
+  - normal
+  - no_waste_heat
   scenarios:
-    enable: false
+    enable: true
     file: config/scenarios.yaml
   disable_progressbar: false
   shared_resources:
@@ -670,7 +672,7 @@ sector:
   use_methanolisation_waste_heat: 0.25
   use_methanation_waste_heat: 0.25
   use_fuel_cell_waste_heat: 0.25
-  use_electrolysis_waste_heat: 0.25
+  use_electrolysis_waste_heat: 1
   no_electrolysis_waste_heat_buses: []
   electricity_transmission_grid: true
   electricity_distribution_grid: true
@@ -883,7 +885,7 @@ clustering:
       ramp_limit_down: max
   temporal:
     resolution_elec: false
-    resolution_sector: "25H"
+    resolution_sector: "365H"
 
 # docs in https://pypsa-eur.readthedocs.io/en/latest/configuration.html#adjustments
 adjustments:

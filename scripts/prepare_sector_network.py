@@ -1236,7 +1236,7 @@ def insert_electricity_distribution_grid(n, costs):
 
     v2gs = n.links.index[n.links.carrier == "V2G"]
     n.links.loc[v2gs, "bus1"] += " low voltage"
-
+    breakpoint()
     hps = n.links.index[n.links.carrier.str.contains("heat pump")]
     n.links.loc[hps, "bus0"] += " low voltage"
 
@@ -3952,7 +3952,7 @@ def add_waste_heat(n):
     # TODO options?
 
     logger.info("Add possibility to use industrial waste heat in district heating")
-
+    breakpoint()
     # AC buses with district heating
     urban_central = n.buses.index[n.buses.carrier == "urban central heat"]
     if not urban_central.empty:
@@ -4016,12 +4016,40 @@ def add_waste_heat(n):
         ):
             for bus in urban_central:
                 if bus not in options["no_electrolysis_waste_heat_buses"]:
-                    n.links.loc[bus + " H2 Electrolysis", "bus2"] = (
-                            bus + " urban central heat"
+
+                    n.add(
+                        "Bus",
+                        bus + " Electrolysis Waste Heat",
+                        location=bus,
+                        carrier="waste heat",
+                        unit="MWh_th",
                     )
-                    n.links.loc[bus + " H2 Electrolysis", "efficiency2"] = (
-                    0.84 - n.links.loc[bus + " H2 Electrolysis", "efficiency"]
-                    ) * options["use_electrolysis_waste_heat"]
+                    if bus + " H2 Electrolysis" in n.links.index:
+
+                        #add connection to electrolysis waste heat bus from electrolysis bus
+                        n.links.loc[bus + " H2 Electrolysis", "bus2"] = (
+                                bus + " Electrolysis Waste Heat"
+                        )
+                        n.links.loc[bus + " H2 Electrolysis", "efficiency2"] = (
+                        0.84 - n.links.loc[bus + " H2 Electrolysis", "efficiency"]
+                        ) * options["use_electrolysis_waste_heat"]
+
+                    if bus + " H2 Electrolysis extra" in n.links.index:
+                        # add connection to electrolysis waste heat bus from extra electrolysis bus
+                        n.links.loc[bus + " H2 Electrolysis extra", "bus2"] = (
+                                bus + " Electrolysis Waste Heat"
+                        )
+                        n.links.loc[bus + " H2 Electrolysis extra", "efficiency2"] = (
+                        0.84 - n.links.loc[bus + " H2 Electrolysis", "efficiency"]
+                        ) * options["use_electrolysis_waste_heat"]
+
+                    n.add(
+                        "Link",
+                        bus + "heat pump",
+                        bus0=bus + " Electrolysis Waste Heat",
+                        bus1=bus + " urban central heat",
+                        carrier="none",
+                    )
 
         if options["use_fuel_cell_waste_heat"] and "H2 Fuel Cell" in link_carriers:
             n.links.loc[urban_central + " H2 Fuel Cell", "bus2"] = (
@@ -4646,6 +4674,9 @@ if __name__ == "__main__":
     if options["industry"]:
         add_industry(n, costs)
 
+    if options["add_extra_h2_load"]:
+        add_extra_h2_load(n, costs)
+
     if options["heating"]:
         add_waste_heat(n)
 
@@ -4663,9 +4694,6 @@ if __name__ == "__main__":
 
     if options["co2network"]:
         add_co2_network(n, costs)
-
-    if options["add_extra_h2_load"]:
-        add_extra_h2_load(n, costs)
 
     if options["allam_cycle_gas"]:
         add_allam_gas(n, costs)
