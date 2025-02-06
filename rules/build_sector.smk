@@ -309,17 +309,18 @@ rule build_heat_source_potentials:
 rule build_cop_profiles:
     params:
         heat_pump_sink_T_decentral_heating=config_provider(
-            "sector", "heat_pump_sink_T_individual_heating"
+            "sector","heat_pump_sink_T_individual_heating"
         ),
         heat_source_cooling_central_heating=config_provider(
-            "sector", "district_heating", "heat_source_cooling"
+            "sector","district_heating","heat_source_cooling"
         ),
         heat_pump_cop_approximation_central_heating=config_provider(
-            "sector", "district_heating", "heat_pump_cop_approximation"
+            "sector","district_heating","heat_pump_cop_approximation"
         ),
-        heat_pump_sources=config_provider("sector", "heat_pump_sources"),
+        electrolysis_waste_temp=config_provider("sector","district_heating","electrolysis_waste_heat_constant_temperature_celsius"),
+        heat_pump_sources=config_provider("sector","heat_pump_sources"),
         heat_utilisation_potentials=config_provider(
-            "sector", "district_heating", "heat_utilisation_potentials"
+            "sector","district_heating","heat_utilisation_potentials"
         ),
         snapshots=config_provider("snapshots"),
     input:
@@ -333,13 +334,14 @@ rule build_cop_profiles:
         temp_air_total=resources("temp_air_total_base_s_{clusters}.nc"),
         regions_onshore=resources("regions_onshore_base_s_{clusters}.geojson"),
     output:
-        cop_profiles=resources("cop_profiles_base_s_{clusters}_{planning_horizons}.nc"),
+        RESULTS + "cop_profiles_base_s_{clusters}_{planning_horizons}.nc"
+        #cop_profiles=resources("cop_profiles_base_s_{clusters}_{planning_horizons}{electrolysis_waste_temp}.nc"),
     resources:
         mem_mb=20000,
     log:
-        logs("build_cop_profiles_s_{clusters}_{planning_horizons}.log"),
+        RESULTS + "logs/build_cop_profiles_s_{clusters}_{planning_horizons}.log",
     benchmark:
-        benchmarks("build_cop_profiles/s_{clusters}_{planning_horizons}")
+        RESULTS + "benchmarks/build_cop_profiles/s_{clusters}_{planning_horizons}",
     conda:
         "../envs/environment.yaml"
     script:
@@ -354,25 +356,22 @@ rule build_direct_heat_source_utilisation_profiles:
         heat_utilisation_potentials=config_provider(
             "sector", "district_heating", "heat_utilisation_potentials"
         ),
+        electrolysis_waste_temp=config_provider(
+        "sector","district_heating","electrolysis_waste_heat_constant_temperature_celsius"
+            ),
         snapshots=config_provider("snapshots"),
     input:
         central_heating_forward_temperature_profiles=resources(
             "central_heating_forward_temperature_profiles_base_s_{clusters}_{planning_horizons}.nc"
         ),
     output:
-        direct_heat_source_utilisation_profiles=resources(
-            "direct_heat_source_utilisation_profiles_base_s_{clusters}_{planning_horizons}.nc"
-        ),
+        RESULTS + "direct_heat_source_utilisation_profiles_base_s_{clusters}_{planning_horizons}.nc",
     resources:
         mem_mb=20000,
     log:
-        logs(
-            "build_direct_heat_source_utilisation_profiles_s_{clusters}_{planning_horizons}.log"
-        ),
+        RESULTS + "logs/build_direct_heat_source_utilisation_profiles_s_{clusters}_{planning_horizons}.log",
     benchmark:
-        benchmarks(
-            "build_direct_heat_source_utilisation_profiles/s_{clusters}_{planning_horizons}"
-        )
+        RESULTS + "benchmarks/build_direct_heat_source_utilisation_profiles/s_{clusters}_{planning_horizons}",
     conda:
         "../envs/environment.yaml"
     script:
@@ -1106,6 +1105,9 @@ rule prepare_sector_network:
         direct_utilisation_heat_sources=config_provider(
             "sector", "district_heating", "direct_utilisation_heat_sources"
         ),
+        electrolysis_distance_to_district_heating=config_provider(
+        "sector", "electrolysis_distance_to_district_heating"
+            ),
     input:
         unpack(input_profile_offwind),
         unpack(input_heat_source_potentials),
@@ -1177,7 +1179,7 @@ rule prepare_sector_network:
         heating_efficiencies=resources("heating_efficiencies.csv"),
         temp_soil_total=resources("temp_soil_total_base_s_{clusters}.nc"),
         temp_air_total=resources("temp_air_total_base_s_{clusters}.nc"),
-        cop_profiles=resources("cop_profiles_base_s_{clusters}_{planning_horizons}.nc"),
+        cop_profiles=RESULTS + "cop_profiles_base_s_{clusters}_{planning_horizons}.nc",#resources("cop_profiles_base_s_{clusters}_{planning_horizons}.nc"),
         solar_thermal_total=lambda w: (
             resources("solar_thermal_total_base_s_{clusters}.nc")
             if config_provider("sector", "solar_thermal")(w)
@@ -1198,9 +1200,10 @@ rule prepare_sector_network:
             if config_provider("sector", "enhanced_geothermal", "enable")(w)
             else []
         ),
-        direct_heat_source_utilisation_profiles=resources(
-            "direct_heat_source_utilisation_profiles_base_s_{clusters}_{planning_horizons}.nc"
-        ),
+        direct_heat_source_utilisation_profiles= RESULTS+ "direct_heat_source_utilisation_profiles_base_s_{clusters}_{planning_horizons}.nc",
+        #direct_heat_source_utilisation_profiles=resources(
+        #    "direct_heat_source_utilisation_profiles_base_s_{clusters}_{planning_horizons}.nc"
+        #),
     output:
         RESULTS
         + "prenetworks/base_s_{clusters}_l{ll}_{opts}_{sector_opts}_{planning_horizons}.nc",

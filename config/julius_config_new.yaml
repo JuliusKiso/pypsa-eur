@@ -22,8 +22,21 @@ remote:
 run:
   prefix: ""
   name:
-  - normal
-  - no_waste_heat
+  - basis_scenario
+  #- waste_heat_10_km
+  #- waste_heat_5_km
+  #- waste_heat_1_km
+  #- electrolysis_temp_40
+  #- electrolysis_temp_60
+  #- electrolysis_temp_80
+  #- no_waste_heat
+  #- half_h2_pipe_capex
+  #- zero_h2_pipe_capex
+  #- zero_h2_pipe_capex_no_waste_heat
+  #- H2_retrofit
+  #- H2_retrofit_no_waste_heat
+  #- half_electrolysis_capex
+  #- half_electrolysis_capex_no_waste_heat
   scenarios:
     enable: true
     file: config/scenarios.yaml
@@ -42,7 +55,7 @@ scenario:
   ll:
   - vopt
   clusters:
-  - 46
+  - 24
   #- 128
   #- 256
   opts:
@@ -71,7 +84,7 @@ enable:
   retrieve_cost_data: true
   build_cutout: false
   retrieve_cutout: true
-  custom_busmap: true
+  custom_busmap: false
   drop_leap_day: true
 
 # docs in https://pypsa-eur.readthedocs.io/en/latest/configuration.html#co2-budget
@@ -492,16 +505,20 @@ sector:
         column_name: Energy_TWh
         unit: TWh
         full_load_hours: 4000
+    electrolysis_waste_heat_constant_temperature_celsius: 70
     direct_utilisation_heat_sources:
+      - electrolysis_waste_heat
       - geothermal
   heat_pump_sources:
     urban central:
+    - electrolysis_waste_heat
     - air
     urban decentral:
     - air
     rural:
     - air
     - ground
+  electrolysis_distance_to_district_heating: 0 #km
   cluster_heat_buses: true
   heat_demand_cutout: default
   bev_dsm_restriction_value: 0.75
@@ -686,6 +703,7 @@ sector:
   use_fuel_cell_waste_heat: 0.25
   use_electrolysis_waste_heat: 1
   no_electrolysis_waste_heat_buses: []
+  electrolysis_capex_factor: 1
   electricity_transmission_grid: true
   electricity_distribution_grid: true
   electricity_grid_connection: true
@@ -702,8 +720,8 @@ sector:
     electricity distribution grid:
       efficiency_static: 0.97
   H2_network: true
-  remove_interconnecting_H2_pipes: true
-  add_extra_h2_load: true
+  remove_interconnecting_H2_pipes: false
+  add_extra_h2_load: false
   extra_h2_load: 0 #MWh
   constant_extra_h2_load: true
   pipeline_CAPEX_factor: 1
@@ -897,7 +915,7 @@ clustering:
       ramp_limit_down: max
   temporal:
     resolution_elec: false
-    resolution_sector: "365H"
+    resolution_sector: "13H"
 
 # docs in https://pypsa-eur.readthedocs.io/en/latest/configuration.html#adjustments
 adjustments:
@@ -979,6 +997,9 @@ solving:
       Seed: 123
       AggFill: 0
       PreDual: 0
+      #IISMethod: 2
+      #FeasibilityTol: 1.e-2
+      #Presolve: 1
       GURO_PAR_BARDENSETHRESH: 200
     gurobi-numeric-focus:
       NumericFocus: 3       # Favour numeric stability over speed
@@ -1243,6 +1264,7 @@ plotting:
     # heat supply
     heat pumps: '#2fb537'
     heat pump: '#2fb537'
+    booster heat pump: '#2fb537'
     air heat pump: '#36eb41'
     residential urban decentral air heat pump: '#48f74f'
     services urban decentral air heat pump: '#5af95d'
@@ -1366,3 +1388,4 @@ plotting:
     waste CHP: '#e3d37d'
     waste CHP CC: '#e3d3ff'
     HVC to air: 'k'
+    electrolysis_waste_heat heat direct utilisation: '#000000'

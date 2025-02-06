@@ -1236,8 +1236,11 @@ def insert_electricity_distribution_grid(n, costs):
 
     v2gs = n.links.index[n.links.carrier == "V2G"]
     n.links.loc[v2gs, "bus1"] += " low voltage"
-    breakpoint()
-    hps = n.links.index[n.links.carrier.str.contains("heat pump")]
+
+    hps = n.links.index[
+        (n.links.carrier.str.contains("heat pump")) &
+        (~n.links.index.str.contains("electrolysis booster heat pump"))
+        ]
     n.links.loc[hps, "bus0"] += " low voltage"
 
     rh = n.links.index[n.links.carrier.str.contains("resistive heater")]
@@ -1403,7 +1406,7 @@ def add_storage_and_grids(n, costs):
         p_nom_extendable=True,
         carrier="H2 Electrolysis",
         efficiency=costs.at["electrolysis", "efficiency"],
-        capital_cost=costs.at["electrolysis", "fixed"],
+        capital_cost=costs.at["electrolysis", "fixed"] * options["electrolysis_capex_factor"],
         lifetime=costs.at["electrolysis", "lifetime"],
     )
 
@@ -2199,76 +2202,198 @@ def add_heat(
         for heat_source in snakemake.params.heat_pump_sources[
             heat_system.system_type.value
         ]:
-            costs_name_heat_pump = heat_system.heat_pump_costs_name(heat_source)
-            cop_heat_pump = (
-                cop.sel(
-                    heat_system=heat_system.system_type.value,
-                    heat_source=heat_source,
-                    name=nodes,
+            if heat_source != "electrolysis_waste_heat":
+                costs_name_heat_pump = heat_system.heat_pump_costs_name(heat_source)
+                cop_heat_pump = (
+                    cop.sel(
+                        heat_system=heat_system.system_type.value,
+                        heat_source=heat_source,
+                        name=nodes,
+                    )
+                    .to_pandas()
+                    .reindex(index=n.snapshots)
+                    if options["time_dep_hp_cop"]
+                    else costs.at[costs_name_heat_pump, "efficiency"]
                 )
-                .to_pandas()
-                .reindex(index=n.snapshots)
-                if options["time_dep_hp_cop"]
-                else costs.at[costs_name_heat_pump, "efficiency"]
-            )
 
-            if heat_source in snakemake.params.heat_utilisation_potentials:
-                # get potential
-                p_max_source = pd.read_csv(
-                    snakemake.input[heat_source],
-                    index_col=0,
-                ).squeeze()[nodes]
+                if heat_source in snakemake.params.heat_utilisation_potentials:
+                    # get potential
+                    p_max_source = pd.read_csv(
+                        snakemake.input[heat_source],
+                        index_col=0,
+                    ).squeeze()[nodes]
 
-                # add resource
-                heat_carrier = f"{heat_system} {heat_source} heat"
-                n.add("Carrier", heat_carrier)
+                    # add resource
+                    heat_carrier = f"{heat_system} {heat_source} heat"
+                    n.add("Carrier", heat_carrier)
+                    n.madd(
+                        "Bus",
+                        nodes,
+                        suffix=f" {heat_carrier}",
+                        carrier=heat_carrier,
+                    )
+
+                    costs_name_heat_source = heat_system.heat_source_costs_name(heat_source)
+                    if heat_source in snakemake.params.direct_utilisation_heat_sources:
+                        capital_cost = (
+                            costs.at[
+                                heat_system.heat_source_costs_name(heat_source), "fixed"
+                            ]
+                            * overdim_factor
+                        )
+                        lifetime = costs.at[
+                            heat_system.heat_source_costs_name(heat_source), "lifetime"
+                        ]
+                    else:
+                        capital_cost = 0.0
+                        lifetime = np.inf
+                    n.madd(
+                        "Generator",
+                        nodes,
+                        suffix=f" {heat_carrier}",
+                        bus=nodes + f" {heat_carrier}",
+                        carrier=heat_carrier,
+                        p_nom_extendable=True,
+                        capital_cost=capital_cost,
+                        lifetime=lifetime,
+                        p_nom_max=p_max_source,
+                    )
+
+                    # add heat pump converting source heat + electricity to urban central heat
+                    n.madd(
+                        "Link",
+                        nodes,
+                        suffix=f" {heat_system} {heat_source} heat pump",
+                        bus0=nodes,
+                        bus1=nodes + f" {heat_carrier}",
+                        bus2=nodes + f" {heat_system} heat",
+                        carrier=f"{heat_system} {heat_source} heat pump",
+                        efficiency=-(cop_heat_pump - 1),
+                        efficiency2=cop_heat_pump,
+                        capital_cost=costs.at[costs_name_heat_pump, "efficiency"]
+                        * costs.at[costs_name_heat_pump, "fixed"]
+                        * overdim_factor,
+                        p_nom_extendable=True,
+                        lifetime=costs.at[costs_name_heat_pump, "lifetime"],
+                    )
+
+                    if heat_source in snakemake.params.direct_utilisation_heat_sources:
+                        # 1 if source temperature exceeds forward temperature, 0 otherwise:
+                        efficiency_direct_utilisation = (
+                            direct_heat_source_utilisation_profile.sel(
+                                heat_source=heat_source,
+                                name=nodes,
+                            )
+                            .to_pandas()
+                            .reindex(index=n.snapshots)
+                        )
+                        # add link for direct usage of heat source when source temperature exceeds forward temperature
+                        n.madd(
+                            "Link",
+                            nodes,
+                            suffix=f" {heat_system} {heat_source} heat direct utilisation",
+                            bus0=nodes + f" {heat_carrier}",
+                            bus1=nodes + f" {heat_system} heat",
+                            efficiency=efficiency_direct_utilisation,
+                            carrier=f"{heat_system} {heat_source} heat direct utilisation",
+                            p_nom_extendable=True,
+                        )
+                else:
+                    n.madd(
+                        "Link",
+                        nodes,
+                        suffix=f" {heat_system} {heat_source} heat pump",
+                        bus0=nodes,
+                        bus1=nodes + f" {heat_system} heat",
+                        carrier=f"{heat_system} {heat_source} heat pump",
+                        efficiency=cop_heat_pump,
+                        capital_cost=costs.at[costs_name_heat_pump, "efficiency"]
+                        * costs.at[costs_name_heat_pump, "fixed"]
+                        * overdim_factor,
+                        p_nom_extendable=True,
+                        lifetime=costs.at[costs_name_heat_pump, "lifetime"],
+                    )
+            else: #if source == electrolysis_waste_heat
+                if nodes not in options["no_electrolysis_waste_heat_buses"]:
+                    n.add(
+                        "Bus",
+                        nodes + " electrolysis waste heat",
+                        location=nodes,
+                        carrier="waste heat",
+                        unit="MWh_th",
+                    )
+                    #add heat_vent to low quality waste heat bus
+                    n.add(
+                        "Generator",
+                        nodes + f" electrolysis waste heat heat vent",
+                        bus=nodes + " electrolysis waste heat",
+                        location=nodes,
+                        carrier=f"{heat_system} heat vent",
+                        p_nom_extendable=True,
+                        p_max_pu=0,
+                        p_min_pu=-1,
+                        unit="MWh_th",
+                    )
+                # add here heat pumps for electrolysis waste heat
+                costs_name_heat_pump = heat_system.heat_pump_costs_name("ground")
+                cop_booster_heat_pump = (
+                    cop.sel(
+                        heat_system="urban central",
+                        heat_source="electrolysis_waste_heat",
+                        name=nodes,
+                    )
+                    .to_pandas()
+                    .reindex(index=n.snapshots)
+                )
+
+                # add bus high_qual_waste_heat
                 n.madd(
                     "Bus",
-                    nodes,
-                    suffix=f" {heat_carrier}",
-                    carrier=heat_carrier,
+                    nodes + " high qual electrolysis waste heat",
+                    location=nodes,
+                    carrier="high quality waste heat",
+                    unit="MWh_th",
                 )
 
-                costs_name_heat_source = heat_system.heat_source_costs_name(heat_source)
-                if heat_source in snakemake.params.direct_utilisation_heat_sources:
-                    capital_cost = (
-                        costs.at[
-                            heat_system.heat_source_costs_name(heat_source), "fixed"
-                        ]
-                        * overdim_factor
-                    )
-                    lifetime = costs.at[
-                        heat_system.heat_source_costs_name(heat_source), "lifetime"
-                    ]
-                else:
-                    capital_cost = 0.0
-                    lifetime = np.inf
-                n.madd(
+                # add heat_vent to low quality waste heat bus
+                n.add(
                     "Generator",
-                    nodes,
-                    suffix=f" {heat_carrier}",
-                    bus=nodes + f" {heat_carrier}",
-                    carrier=heat_carrier,
+                    nodes + " high qual electrolysis waste heat heat vent",
+                    bus=nodes + " high qual electrolysis waste heat",
+                    location=nodes,
+                    carrier=f"{heat_system} heat vent",
                     p_nom_extendable=True,
-                    capital_cost=capital_cost,
-                    lifetime=lifetime,
-                    p_nom_max=p_max_source,
+                    p_max_pu=0,
+                    p_min_pu=-1,
+                    unit="MWh_th",
                 )
 
-                # add heat pump converting source heat + electricity to urban central heat
                 n.madd(
                     "Link",
                     nodes,
-                    suffix=f" {heat_system} {heat_source} heat pump",
+                    suffix=" electrolysis booster heat pump",
                     bus0=nodes,
-                    bus1=nodes + f" {heat_carrier}",
-                    bus2=nodes + f" {heat_system} heat",
-                    carrier=f"{heat_system} {heat_source} heat pump",
-                    efficiency=-(cop_heat_pump - 1),
-                    efficiency2=cop_heat_pump,
+                    bus1=nodes + " electrolysis waste heat",
+                    bus2=nodes + " high qual electrolysis waste heat",
+                    carrier="booster heat pump",
+                    efficiency=-(cop_booster_heat_pump - 1),
+                    efficiency2=cop_booster_heat_pump,
                     capital_cost=costs.at[costs_name_heat_pump, "efficiency"]
-                    * costs.at[costs_name_heat_pump, "fixed"]
-                    * overdim_factor,
+                                 * costs.at[costs_name_heat_pump, "fixed"]
+                                 * overdim_factor,
+                    p_nom_extendable=True,
+                    lifetime=costs.at[costs_name_heat_pump, "lifetime"],
+                )
+
+                n.madd(
+                    "Link",
+                    nodes,
+                    suffix=" district heating pipeline",
+                    bus0=nodes + " high qual electrolysis waste heat",
+                    bus1=nodes + " urban central heat",
+                    carrier="heat",
+                    efficiency=1 - snakemake.params.electrolysis_distance_to_district_heating * 0.01, #1 % efficiency losses per km
+                    capital_cost=snakemake.params.electrolysis_distance_to_district_heating *1e3 *13,  #13 Euro/MW/m * 1000 * x km
                     p_nom_extendable=True,
                     lifetime=costs.at[costs_name_heat_pump, "lifetime"],
                 )
@@ -2288,27 +2413,12 @@ def add_heat(
                         "Link",
                         nodes,
                         suffix=f" {heat_system} {heat_source} heat direct utilisation",
-                        bus0=nodes + f" {heat_carrier}",
-                        bus1=nodes + f" {heat_system} heat",
+                        bus0=nodes + " electrolysis waste heat",
+                        bus1=nodes + " high qual electrolysis waste heat",
                         efficiency=efficiency_direct_utilisation,
                         carrier=f"{heat_system} {heat_source} heat direct utilisation",
                         p_nom_extendable=True,
                     )
-            else:
-                n.madd(
-                    "Link",
-                    nodes,
-                    suffix=f" {heat_system} {heat_source} heat pump",
-                    bus0=nodes,
-                    bus1=nodes + f" {heat_system} heat",
-                    carrier=f"{heat_system} {heat_source} heat pump",
-                    efficiency=cop_heat_pump,
-                    capital_cost=costs.at[costs_name_heat_pump, "efficiency"]
-                    * costs.at[costs_name_heat_pump, "fixed"]
-                    * overdim_factor,
-                    p_nom_extendable=True,
-                    lifetime=costs.at[costs_name_heat_pump, "lifetime"],
-                )
 
         if options["tes"]:
             n.add("Carrier", f"{heat_system} water tanks")
@@ -4040,7 +4150,7 @@ def add_waste_heat(n):
     # TODO options?
 
     logger.info("Add possibility to use industrial waste heat in district heating")
-    breakpoint()
+
     # AC buses with district heating
     urban_central = n.buses.index[n.buses.carrier == "urban central heat"]
     if not urban_central.empty:
@@ -4104,19 +4214,11 @@ def add_waste_heat(n):
         ):
             for bus in urban_central:
                 if bus not in options["no_electrolysis_waste_heat_buses"]:
-
-                    n.add(
-                        "Bus",
-                        bus + " Electrolysis Waste Heat",
-                        location=bus,
-                        carrier="waste heat",
-                        unit="MWh_th",
-                    )
                     if bus + " H2 Electrolysis" in n.links.index:
 
                         #add connection to electrolysis waste heat bus from electrolysis bus
                         n.links.loc[bus + " H2 Electrolysis", "bus2"] = (
-                                bus + " Electrolysis Waste Heat"
+                                bus + " electrolysis waste heat"
                         )
                         n.links.loc[bus + " H2 Electrolysis", "efficiency2"] = (
                         0.84 - n.links.loc[bus + " H2 Electrolysis", "efficiency"]
@@ -4125,19 +4227,12 @@ def add_waste_heat(n):
                     if bus + " H2 Electrolysis extra" in n.links.index:
                         # add connection to electrolysis waste heat bus from extra electrolysis bus
                         n.links.loc[bus + " H2 Electrolysis extra", "bus2"] = (
-                                bus + " Electrolysis Waste Heat"
+                                bus + " electrolysis waste heat"
                         )
                         n.links.loc[bus + " H2 Electrolysis extra", "efficiency2"] = (
                         0.84 - n.links.loc[bus + " H2 Electrolysis", "efficiency"]
                         ) * options["use_electrolysis_waste_heat"]
 
-                    n.add(
-                        "Link",
-                        bus + "heat pump",
-                        bus0=bus + " Electrolysis Waste Heat",
-                        bus1=bus + " urban central heat",
-                        carrier="none",
-                    )
 
         if options["use_fuel_cell_waste_heat"] and "H2 Fuel Cell" in link_carriers:
             n.links.loc[urban_central + " H2 Fuel Cell", "bus2"] = (

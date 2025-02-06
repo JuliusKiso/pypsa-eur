@@ -1002,8 +1002,13 @@ def solve_network(n, config, params, solving, **kwargs):
     )
     kwargs["assign_all_duals"] = cf_solving.get("assign_all_duals", False)
     kwargs["io_api"] = cf_solving.get("io_api", None)
-
+    breakpoint()
     if kwargs["solver_name"] == "gurobi":
+        solver_options = kwargs["solver_options"]
+        solver_options["OutputFlag"] = 1  # Enable detailed logging
+        solver_options["LogFile"] = "gurobi_solver_log.txt"  # Log output to a file
+        solver_options["LogToConsole"] = 1  # Log to console
+        logging.getLogger("gurobipy").setLevel(logging.INFO)
         logging.getLogger("gurobipy").setLevel(logging.CRITICAL)
 
     rolling_horizon = cf_solving.pop("rolling_horizon", False)
@@ -1038,7 +1043,17 @@ def solve_network(n, config, params, solving, **kwargs):
         logger.warning(
             f"Solving status '{status}' with termination condition '{condition}'"
         )
+        breakpoint()
     if "infeasible" in condition:
+        gurobi_model = n.model.solver_model
+        gurobi_model.computeIIS()
+        iis_filename = "model.ilp"
+        gurobi_model.write(iis_filename)
+        logger.info(f"IIS written to {iis_filename}")
+        for c in n.model.getConstrs():
+            if c.IISConstr:
+                print(f"Infeasible constraint: {c.ConstrName}")
+
         labels = n.model.compute_infeasibilities()
         logger.info(f"Labels:\n{labels}")
         n.model.print_infeasibilities()

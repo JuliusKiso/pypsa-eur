@@ -125,9 +125,13 @@ if __name__ == "__main__":
                         "constant_temperature_celsius"
                     ]
                 )
+            elif heat_source == "electrolysis_waste_heat":
+                source_inlet_temperature_celsius = (
+                    snakemake.params.electrolysis_waste_temp
+                )
             else:
                 raise ValueError(
-                    f"Unknown heat source {heat_source}. Must be one of [ground, air] or {snakemake.params.heat_sources.keys()}."
+                    f"Unknown heat source {heat_source}. Must be one of [ground, air] or {snakemake.params.heat_pump_sources.keys()}."
                 )
 
             cop_da = get_cop(
@@ -149,4 +153,4 @@ if __name__ == "__main__":
         dim=pd.Index(snakemake.params.heat_pump_sources.keys(), name="heat_system"),
     )
 
-    cop_dataarray.to_netcdf(snakemake.output.cop_profiles)
+    cop_dataarray.to_netcdf(snakemake.output[0])

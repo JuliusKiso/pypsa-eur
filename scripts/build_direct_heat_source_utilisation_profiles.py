@@ -55,6 +55,8 @@ def get_source_temperature(heat_source_key: str):
         return snakemake.params.heat_utilisation_potentials[heat_source_key][
             "constant_temperature_celsius"
         ]
+    elif heat_source_key == "electrolysis_waste_heat":
+        return snakemake.params.electrolysis_waste_temp
     else:
         raise ValueError(
             f"Unknown heat source {heat_source_key}. Must be one of {
@@ -112,4 +114,4 @@ if __name__ == "__main__":
             for heat_source_key in direct_utilisation_heat_sources
         ],
         dim="heat_source",
-    ).to_netcdf(snakemake.output.direct_heat_source_utilisation_profiles)
+    ).to_netcdf(snakemake.output[0])
