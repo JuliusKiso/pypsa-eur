@@ -22,9 +22,32 @@ remote:
 run:
   prefix: ""
   name:
-  - basis_scenario
+  #- basis_scenario
+  #- full_waste_heat
+  - reference
+  #- one
+  #- two
+  - grid_limit_100
+  - grid_limit_125
+  - grid_limit_150
+  #- three
+  #- four
+  #- five
+  #- six
+  #- seven
+  #- eight
+  #- nine
+  #- ten
+  #- waste_heat
+  #- status_quo
+  #- no_waste_heat
+  #- no_production_constraint
+  #- no_dac_constraint
+  #- min_waste_heat
+  #- min_waste_heat_full
   #- waste_heat_10_km
   #- waste_heat_5_km
+ # - waste_heat_2_km
   #- waste_heat_1_km
   #- electrolysis_temp_40
   #- electrolysis_temp_60
@@ -55,7 +78,7 @@ scenario:
   ll:
   - vopt
   clusters:
-  - 24
+  - 56
   #- 128
   #- 256
   opts:
@@ -69,7 +92,7 @@ scenario:
   - 2050
 
 # docs in https://pypsa-eur.readthedocs.io/en/latest/configuration.html#countries
-countries: ['DE', 'DK', 'PL', 'CZ']
+countries: ['DE', 'PL', 'CZ' , 'DK' , 'CH' , 'AT' , 'BE' , 'NL' , 'FR' , 'LU']
 
 # docs in https://pypsa-eur.readthedocs.io/en/latest/configuration.html#snapshots
 snapshots:
@@ -84,7 +107,7 @@ enable:
   retrieve_cost_data: true
   build_cutout: false
   retrieve_cutout: true
-  custom_busmap: false
+  custom_busmap: true
   drop_leap_day: true
 
 # docs in https://pypsa-eur.readthedocs.io/en/latest/configuration.html#co2-budget
@@ -651,7 +674,7 @@ sector:
   regional_oil_demand: false
   regional_coal_demand: false
   regional_co2_sequestration_potential:
-    enable: false
+    enable: true #false
     attribute:
     - conservative estimate Mt
     - conservative estimate GAS Mt
@@ -668,7 +691,7 @@ sector:
     2035: 100
     2040: 200
     2045: 200
-    2050: 200
+    2050: 109 #200 * 0.5453 #population factor
   co2_sequestration_cost: 10
   co2_sequestration_lifetime: 50
   co2_spatial: false
@@ -702,8 +725,14 @@ sector:
   use_methanation_waste_heat: 0.25
   use_fuel_cell_waste_heat: 0.25
   use_electrolysis_waste_heat: 1
+  electrolysis_potential_analysis: true
   no_electrolysis_waste_heat_buses: []
   electrolysis_capex_factor: 1
+  electrolysis_capacity_constraint: true
+  dac_capacity_constraint: false
+  min_waste_heat: false
+  transmission_limit_50hertz: false
+  transmission_limit_factor: 1
   electricity_transmission_grid: true
   electricity_distribution_grid: true
   electricity_grid_connection: true
@@ -915,7 +944,7 @@ clustering:
       ramp_limit_down: max
   temporal:
     resolution_elec: false
-    resolution_sector: "13H"
+    resolution_sector: "2000SEG"
 
 # docs in https://pypsa-eur.readthedocs.io/en/latest/configuration.html#adjustments
 adjustments:
@@ -990,13 +1019,14 @@ solving:
       parallel: "on"
       random_seed: 123
     gurobi-default:
-      threads: 8
+      threads: 4
       method: 2 # barrier
       crossover: 0
       BarConvTol: 1.e-6
       Seed: 123
       AggFill: 0
       PreDual: 0
+      #DualReductions: 0
       #IISMethod: 2
       #FeasibilityTol: 1.e-2
       #Presolve: 1
@@ -1041,7 +1071,7 @@ solving:
     cbc-default: {} # Used in CI
     glpk-default: {} # Used in CI
 
-  mem_mb: 20000 #memory in MB; 20 GB enough for 50+B+I+H2; 100 GB for 181+B+I+H2
+  mem_mb: 30000 #memory in MB; 20 GB enough for 50+B+I+H2; 100 GB for 181+B+I+H2
   runtime: 6h #runtime in humanfriendly style https://humanfriendly.readthedocs.io/en/latest/
 
 
@@ -1318,6 +1348,7 @@ plotting:
     ammonia: '#46caf0'
     ammonia store: '#00ace0'
     ammonia cracker: '#87d0e6'
+    ammonia cracker: '#87d0e6'
     Haber-Bosch: '#076987'
     # syngas
     Sabatier: '#9850ad'
@@ -1389,3 +1420,5 @@ plotting:
     waste CHP CC: '#e3d3ff'
     HVC to air: 'k'
     electrolysis_waste_heat heat direct utilisation: '#000000'
+    heat direct utilisation: 'olive'
+    district heating pipeline: 'navy'

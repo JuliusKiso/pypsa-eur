@@ -809,6 +809,137 @@ def add_lossy_bidirectional_link_constraints(n):
 
     n.model.add_constraints(lhs == rhs, name="Link-bidirectional_sync")
 
+def add_dac_50hertz_constraint(n):
+    # Step 1: Identify buses in the 50Hertz region
+    ac_buses = n.buses[n.buses.carrier == "AC"]
+
+    # Ensure index is a string, split safely, and filter correctly
+    hertz_buses = ac_buses[ac_buses.index.str.contains("Hertz")]
+    #breakpoint()
+
+    # Step 2: Identify electrolysis links connected to these buses
+    DAC = n.links[
+        (n.links.index.str.contains("urban central DAC")) &
+        (n.links.bus0.isin(hertz_buses.index))
+        ]
+
+    if DAC.empty:
+        print("No DAC links found in the 50Hertz region.")
+        return
+
+    # Step 3: Add a constraint to ensure DAC capacity is zero
+    lhs = sum(n.model["Link-p_nom"][dac] for dac in DAC.index)
+    n.model.add_constraints(lhs == 0, name="zero_DAC_50hertz")
+
+    print(f"Added DAC constraint: Set capacity to zero in 50Hertz region.")
+
+
+def add_min_waste_heat_constraint(n):
+    # Step 1: Identify waste heat pipelines
+    pipeline_lengths = ["0km", "1km", "3km", "5km"]
+    buses_50hertz = n.buses[n.buses.index.str.contains("Hertz") & (n.buses.carrier == "AC")]
+
+    for bus in buses_50hertz.index:
+        existing_pipelines = [
+            length for length in pipeline_lengths
+            if f"{bus} district heating pipeline {length}" in n.links.index
+        ]
+
+        if existing_pipelines:  # Proceed only if there are valid pipelines
+            # Define expressions (not fixed values) to ensure constraints work
+            hydrogen_production = sum(
+                n.model["Link-p"][snapshot, f"{bus} H2 Electrolysis"]
+                for snapshot in n.snapshots
+            )
+
+            waste_heat = sum(
+                n.model["Link-p"][snapshot, f"{bus} district heating pipeline {length}"]
+                for snapshot in n.snapshots
+                for length in existing_pipelines
+            )
+
+            min_waste_heat = n.config["sector"]["min_waste_heat"] * hydrogen_production * 0.2813
+
+            # Constraint should be waste_heat >= min_waste_heat
+            n.model.add_constraints(
+                waste_heat - min_waste_heat >= 0,
+                name=f"min_electrolysis_50hertz_{bus}"
+            )
+    print(f"Added waste heat utilization constraint for each node in the 50Hertz region with at least {n.config["sector"]["min_waste_heat"] * 100}% of hydrogen production as waste heat.")
+
+def add_electrolysis_50hertz_constraint(n, min_h2_production = 100000000):
+    # Step 1: Identify buses in the 50Hertz region
+    ac_buses = n.buses[n.buses.carrier == "AC"]
+
+    # Ensure index is a string, split safely, and filter correctly
+    hertz_buses = ac_buses[ac_buses.index.str.contains("Hertz")]
+    #breakpoint()
+
+    # Step 2: Identify electrolysis links connected to these buses
+    electrolyzers = n.links[
+        (n.links.index.str.contains("H2 Electrolysis")) &
+        (n.links.bus0.isin(hertz_buses.index))
+        ]
+    min_h2_production = min_h2_production / 0.6217 #get to 100TWH of hydrogen
+    if electrolyzers.empty:
+        print("No electrolysis links found in the 50Hertz region.")
+        return
+    # Step 3: Add a constraint to ensure total electrolysis capacity meets the minimum limit
+    lhs = sum(n.model["Link-p"][snapshot, e] for snapshot in n.snapshots for e in electrolyzers.index)
+    #lhs = sum(n.model["Link-p"][e] for e in electrolyzers.index)
+    n.model.add_constraints(lhs >= (min_h2_production / n.snapshot_weightings.iloc[1,1]), name="min_electrolysis_50hertz")
+
+    print(f"Added electrolysis capacity constraint for 50Hertz: min {min_h2_production} MW")
+
+def add_transmission_limit_50hertz(n, limit_factor):
+    """
+    Constrains the maximum capacities of AC lines and DC links within the 50Hertz region
+    based on a specified limit factor and their lengths.
+
+    Parameters:
+    n (pypsa.Network): The PyPSA network object.
+    limit_factor (float): The factor by which to limit the transmission capacities.
+    """
+    # Identify AC lines within or connecting to the 50Hertz region
+    hertz_lines = n.lines[
+        n.lines.bus0.str.contains("Hertz") | n.lines.bus1.str.contains("Hertz")
+    ]
+
+    # Calculate the total existing capacity-length product for AC lines
+    ac_capacity_length_product = (hertz_lines.s_nom * hertz_lines.length).sum()
+
+    # Identify DC links within or connecting to the 50Hertz region
+    links_dc_b = n.links[
+        (n.links.carrier == "DC") & (
+            n.links.bus0.str.contains("Hertz") | n.links.bus1.str.contains("Hertz")
+        ) & (~n.links.index.str.contains("reversed"))
+    ]
+
+    # Calculate the total existing capacity-length product for DC links
+    dc_capacity_length_product = (links_dc_b.p_nom * links_dc_b.length).sum()
+
+    # Combine AC and DC capacity-length products
+    total_capacity_length_product = ac_capacity_length_product + dc_capacity_length_product
+
+    # Define the right-hand side (rhs) of the constraint
+    rhs = total_capacity_length_product * limit_factor
+
+    line_lengths = hertz_lines.length.reindex(n.model["Line-s_nom"].coords["Line-ext"]).fillna(0)
+
+    # Define the left-hand side (lhs) of the constraint for AC lines
+    lhs_ac = (n.model["Line-s_nom"] * line_lengths).sum()
+
+    link_lengths = links_dc_b.length.reindex(n.model["Link-p_nom"].coords["Link-ext"]).fillna(0)
+
+    # Define the left-hand side (lhs) of the constraint for DC links
+    lhs_dc = (n.model["Link-p_nom"] * link_lengths).sum()
+
+    # Combine lhs for AC lines and DC links
+    lhs = lhs_ac + lhs_dc
+
+    # Add the constraint to the model
+    n.model.add_constraints(lhs <= rhs, name="transmission_capacity_limit_50Hertz")
+    print(f"Added transmission expansion limit for 50Hertz: maximum {limit_factor} times the existing capacity-length product.")
 
 def add_chp_constraints(n):
     electric = (
@@ -964,6 +1095,14 @@ def extra_functionality(n, snapshots):
         add_solar_potential_constraints(n, config)
 
     add_battery_constraints(n)
+    if config["sector"]["electrolysis_capacity_constraint"]:
+        add_electrolysis_50hertz_constraint(n)
+    if config["sector"]["dac_capacity_constraint"]:
+        add_dac_50hertz_constraint(n)
+    #if config["sector"]["min_waste_heat"] != 0:
+    #    add_min_waste_heat_constraint(n)
+    if config["sector"]["transmission_limit_50hertz"]:
+        add_transmission_limit_50hertz(n, config["sector"]["transmission_limit_factor"])
     add_lossy_bidirectional_link_constraints(n)
     add_pipe_retrofit_constraint(n)
     if n._multi_invest:
@@ -1002,7 +1141,7 @@ def solve_network(n, config, params, solving, **kwargs):
     )
     kwargs["assign_all_duals"] = cf_solving.get("assign_all_duals", False)
     kwargs["io_api"] = cf_solving.get("io_api", None)
-    breakpoint()
+
     if kwargs["solver_name"] == "gurobi":
         solver_options = kwargs["solver_options"]
         solver_options["OutputFlag"] = 1  # Enable detailed logging
@@ -1043,7 +1182,7 @@ def solve_network(n, config, params, solving, **kwargs):
         logger.warning(
             f"Solving status '{status}' with termination condition '{condition}'"
         )
-        breakpoint()
+        #breakpoint()
     if "infeasible" in condition:
         gurobi_model = n.model.solver_model
         gurobi_model.computeIIS()
@@ -1057,6 +1196,22 @@ def solve_network(n, config, params, solving, **kwargs):
         labels = n.model.compute_infeasibilities()
         logger.info(f"Labels:\n{labels}")
         n.model.print_infeasibilities()
+        # Check dual residuals to discern infeasibility vs. unboundedness
+        if gurobi_model.status == GRB.INFEASIBLE:
+            logger.info("Model is infeasible.")
+        elif gurobi_model.status == GRB.UNBOUNDED:
+            logger.info("Model is unbounded.")
+        else:
+            dual_resid = gurobi_model.getAttr('DualResiduals')
+            primal_resid = gurobi_model.getAttr('PrimalResiduals')
+            logger.info(f"Dual Residuals: {dual_resid}")
+            logger.info(f"Primal Residuals: {primal_resid}")
+
+            if max(dual_resid) > some_threshold:
+                logger.info("High dual residuals indicate potential unboundedness.")
+            else:
+                logger.info("Model is infeasible.")
+
         raise RuntimeError("Solving status 'infeasible'")
 
     return n

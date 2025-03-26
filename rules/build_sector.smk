@@ -1204,6 +1204,7 @@ rule prepare_sector_network:
         #direct_heat_source_utilisation_profiles=resources(
         #    "direct_heat_source_utilisation_profiles_base_s_{clusters}_{planning_horizons}.nc"
         #),
+        electrolysis_potentials='data/electrolysis_potentials.csv'
     output:
         RESULTS
         + "prenetworks/base_s_{clusters}_l{ll}_{opts}_{sector_opts}_{planning_horizons}.nc",
