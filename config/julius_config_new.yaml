@@ -22,44 +22,10 @@ remote:
 run:
   prefix: ""
   name:
-  #- basis_scenario
-  #- full_waste_heat
-  - reference
-  #- one
-  #- two
-  - grid_limit_100
-  - grid_limit_125
-  - grid_limit_150
-  #- three
-  #- four
-  #- five
-  #- six
-  #- seven
-  #- eight
-  #- nine
-  #- ten
-  #- waste_heat
-  #- status_quo
-  #- no_waste_heat
-  #- no_production_constraint
-  #- no_dac_constraint
-  #- min_waste_heat
-  #- min_waste_heat_full
-  #- waste_heat_10_km
-  #- waste_heat_5_km
- # - waste_heat_2_km
-  #- waste_heat_1_km
-  #- electrolysis_temp_40
-  #- electrolysis_temp_60
-  #- electrolysis_temp_80
-  #- no_waste_heat
-  #- half_h2_pipe_capex
-  #- zero_h2_pipe_capex
-  #- zero_h2_pipe_capex_no_waste_heat
-  #- H2_retrofit
-  #- H2_retrofit_no_waste_heat
-  #- half_electrolysis_capex
-  #- half_electrolysis_capex_no_waste_heat
+    - reference
+    #- one_three
+    - one_four
+    #- two_two
   scenarios:
     enable: true
     file: config/scenarios.yaml
@@ -542,6 +508,7 @@ sector:
     - air
     - ground
   electrolysis_distance_to_district_heating: 0 #km
+  waste_heat_costs: 0 #€/MW
   cluster_heat_buses: true
   heat_demand_cutout: default
   bev_dsm_restriction_value: 0.75
@@ -665,7 +632,7 @@ sector:
   coal_cc: false
   dac: true
   co2_vent: false
-  central_heat_vent: false
+  central_heat_vent: true
   allam_cycle_gas: false
   hydrogen_fuel_cell: true
   hydrogen_turbine: false
@@ -944,7 +911,7 @@ clustering:
       ramp_limit_down: max
   temporal:
     resolution_elec: false
-    resolution_sector: "2000SEG"
+    resolution_sector: "50H"
 
 # docs in https://pypsa-eur.readthedocs.io/en/latest/configuration.html#adjustments
 adjustments:
@@ -1071,8 +1038,8 @@ solving:
     cbc-default: {} # Used in CI
     glpk-default: {} # Used in CI
 
-  mem_mb: 30000 #memory in MB; 20 GB enough for 50+B+I+H2; 100 GB for 181+B+I+H2
-  runtime: 6h #runtime in humanfriendly style https://humanfriendly.readthedocs.io/en/latest/
+  mem_mb: 50000 #memory in MB; 20 GB enough for 50+B+I+H2; 100 GB for 181+B+I+H2
+  runtime: 10h #runtime in humanfriendly style https://humanfriendly.readthedocs.io/en/latest/
 
 
 # docs in https://pypsa-eur.readthedocs.io/en/latest/configuration.html#plotting

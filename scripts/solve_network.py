@@ -887,7 +887,7 @@ def add_electrolysis_50hertz_constraint(n, min_h2_production = 100000000):
     # Step 3: Add a constraint to ensure total electrolysis capacity meets the minimum limit
     lhs = sum(n.model["Link-p"][snapshot, e] for snapshot in n.snapshots for e in electrolyzers.index)
     #lhs = sum(n.model["Link-p"][e] for e in electrolyzers.index)
-    n.model.add_constraints(lhs >= (min_h2_production / n.snapshot_weightings.iloc[1,1]), name="min_electrolysis_50hertz")
+    n.model.add_constraints(lhs == (min_h2_production / n.snapshot_weightings.iloc[1,1]), name="min_electrolysis_50hertz")
 
     print(f"Added electrolysis capacity constraint for 50Hertz: min {min_h2_production} MW")
 
