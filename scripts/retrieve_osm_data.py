@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: : 2020-2024 The PyPSA-Eur Authors
+# SPDX-FileCopyrightText: Contributors to PyPSA-Eur <https://github.com/pypsa/pypsa-eur>
 #
 # SPDX-License-Identifier: MIT
 """
@@ -17,7 +16,8 @@ import os
 import time
 
 import requests
-from _helpers import (  # set_scenario_config,; update_config_from_wildcards,; update_config_from_wildcards,
+
+from scripts._helpers import (  # set_scenario_config,; update_config_from_wildcards,; update_config_from_wildcards,
     configure_logging,
     set_scenario_config,
 )
@@ -81,7 +81,7 @@ def retrieve_osm_data(
         retries = 3
         for attempt in range(retries):
             logger.info(
-                f" - Fetching OSM data for feature '{f}' in {country} (Attempt {attempt+1})..."
+                f" - Fetching OSM data for feature '{f}' in {country} (Attempt {attempt + 1})..."
             )
 
             # Build the overpass query
@@ -98,7 +98,6 @@ def retrieve_osm_data(
                 # Send the request
                 response = requests.post(overpass_url, data=op_query)
                 response.raise_for_status()  # Raise HTTPError for bad responses
-                data = response.json()
 
                 filepath = output[f]
                 parentfolder = os.path.dirname(filepath)
@@ -140,7 +139,7 @@ def retrieve_osm_data(
 
 if __name__ == "__main__":
     if "snakemake" not in globals():
-        from _helpers import mock_snakemake
+        from scripts._helpers import mock_snakemake
 
         snakemake = mock_snakemake("retrieve_osm_data", country="BE")
     configure_logging(snakemake)

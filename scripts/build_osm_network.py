@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: : 2020-2024 The PyPSA-Eur and PyPSA-Earth Authors
+# SPDX-FileCopyrightText: Contributors to PyPSA-Eur <https://github.com/pypsa/pypsa-eur>
 #
 # SPDX-License-Identifier: MIT
 
@@ -12,13 +11,14 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 import pypsa
-from _helpers import configure_logging, set_scenario_config
 from pyproj import Transformer
 from shapely import prepare
 from shapely.algorithms.polylabel import polylabel
 from shapely.geometry import LineString, MultiLineString, Point
 from shapely.ops import linemerge, split
 from tqdm import tqdm
+
+from scripts._helpers import configure_logging, set_scenario_config
 
 logger = logging.getLogger(__name__)
 
@@ -82,10 +82,12 @@ def _merge_identical_lines(lines):
     """
     Aggregates lines with identical geometries and voltage levels by merging them into a single line.
 
-    Parameters:
+    Parameters
+    ----------
         - lines (pd.DataFrame): DataFrame containing line information with columns "geometry", "voltage", "line_id", and "circuits".
 
-    Returns:
+    Returns
+    -------
         - pd.DataFrame: DataFrame with aggregated lines, where lines with identical geometries and voltage levels are merged.
     """
     lines_all = lines.copy()
@@ -135,17 +137,17 @@ def _add_line_endings(buses, lines, add=0, name="line-end"):
     This function creates virtual bus endpoints at the boundaries of the given lines' geometries.
     It ensures that each unique combination of geometry and voltage is represented by a single bus endpoint.
 
-    Parameters:
+    Parameters
+    ----------
         - buses (pd.DataFrame): DataFrame containing bus information.
         - lines (pd.DataFrame): DataFrame containing line information, including 'voltage' and 'geometry' columns.
         - add (int, optional): Offset to add to the bus index for generating unique bus IDs. Default is 0.
         - name (str, optional): Name to assign to the 'contains' column for the virtual buses. Default is "line-end".
 
-    Returns:
+    Returns
+    -------
         - pd.DataFrame: DataFrame containing the virtual bus endpoints with columns 'bus_id', 'voltage', 'geometry', and 'contains'.
     """
-    buses_all = buses.copy()
-
     endpoints0 = lines[["voltage", "geometry"]].copy()
     endpoints0["geometry"] = endpoints0["geometry"].apply(lambda x: x.boundary.geoms[0])
 
@@ -168,11 +170,13 @@ def _split_linestring_by_point(linestring, points):
     """
     Splits a LineString geometry by multiple points.
 
-    Parameters:
+    Parameters
+    ----------
         - linestring (LineString): The LineString geometry to be split.
         - points (list of Point): A list of Point geometries where the LineString should be split.
 
-    Returns:
+    Returns
+    -------
         - list of LineString: A list of LineString geometries resulting from the split.
     """
     list_linestrings = [linestring]
@@ -192,13 +196,15 @@ def split_overpassing_lines(lines, buses, distance_crs=DISTANCE_CRS, tol=1):
     Split overpassing lines by splitting them at nodes within a given tolerance,
     to include the buses being overpassed.
 
-    Parameters:
+    Parameters
+    ----------
         - lines (GeoDataFrame): The lines to be split.
         - buses (GeoDataFrame): The buses representing nodes.
         - distance_crs (str): The coordinate reference system (CRS) for distance calculations.
         - tol (float): The tolerance distance in meters for determining if a bus is within a line.
 
-    Returns:
+    Returns
+    -------
         - lines (GeoDataFrame): The split lines.
         - buses (GeoDataFrame): The buses representing nodes.
     """
@@ -286,13 +292,15 @@ def _create_merge_mapping(lines, buses, buses_polygon, geo_crs=GEO_CRS):
         - Identifies connected components in the graph and merges lines within each component.
         - Note that only lines that unambigruosly can be merged are considered.
 
-    Parameters:
+    Parameters
+    ----------
         - lines (GeoDataFrame): GeoDataFrame containing line data with columns ["line_id", "geometry", "voltage", "circuits"].
         - buses (GeoDataFrame): GeoDataFrame containing bus data with columns ["bus_id", "geometry"].
         - buses_polygon (GeoDataFrame): GeoDataFrame containing the polygon data to filter virtual buses.
         - geo_crs (CRS, optional): Coordinate reference system for the geometries. Defaults to GEO_CRS.
 
-    Returns:
+    Returns
+    -------
         - GeoDataFrame: A GeoDataFrame containing the merged lines with columns ["line_id", "circuits", "voltage", "geometry", "underground", "contains_lines", "contains_buses"].
     """
     logger.info(
@@ -468,13 +476,15 @@ def _merge_lines_over_virtual_buses(
     """
     Merges lines over virtual buses and updates the lines and buses DataFrames accordingly.
 
-    Parameters:
+    Parameters
+    ----------
         - lines (pd.DataFrame): DataFrame containing line information.
         - buses (pd.DataFrame): DataFrame containing bus information.
         - merged_lines_map (pd.DataFrame): DataFrame mapping virtual buses to the lines they contain.
         - distance_crs (str, optional): Coordinate reference system for calculating distances. Defaults to DISTANCE_CRS.
 
-    Returns:
+    Returns
+    -------
         - tuple: A tuple containing the updated lines and buses DataFrames.
     """
     lines_merged = lines.copy()
@@ -524,7 +534,8 @@ def _create_station_seeds(
     """
     Creates aggregated station seeds (candidates) based on substation polygons and updates their country information.
 
-    Parameters:
+    Parameters
+    ----------
         - buses (GeoDataFrame): GeoDataFrame containing bus information with columns "bus_id" and "geometry".
         - buses_polygon (GeoDataFrame): GeoDataFrame containing bus polygon information with columns "bus_id" and "geometry".
         - country_shapes (GeoDataFrame): GeoDataFrame containing country shapes with a "name" column.
@@ -532,7 +543,8 @@ def _create_station_seeds(
         - distance_crs (CRS, optional): Coordinate reference system for distance calculations. Default is DISTANCE_CRS.
         - geo_crs (CRS, optional): Coordinate reference system for geographic calculations. Default is GEO_CRS.
 
-    Returns:
+    Returns
+    -------
         GeoDataFrame: Aggregated station seeds with updated country information and renamed virtual buses.
     """
     # Drop all buses that have bus_id starting with "way/" or "relation/" prefix
@@ -668,17 +680,19 @@ def _merge_buses_to_stations(
     """
     Merges buses with the same voltage level within the same station.
 
-    Parameters:
+    Parameters
+    ----------
         - buses (GeoDataFrame): GeoDataFrame containing bus data with geometries.
         - stations (GeoDataFrame): GeoDataFrame containing station data with geometries.
         - distance_crs (CRS, optional): Coordinate reference system for distance calculations. Defaults to DISTANCE_CRS.
         - geo_crs (CRS, optional): Coordinate reference system for geographic coordinates. Defaults to GEO_CRS.
 
-    Returns:
+    Returns
+    -------
         - GeoDataFrame: Updated GeoDataFrame with merged buses and updated geometries.
     """
     # Merge buses with same voltage and within tolerance
-    logger.info(f"Merging buses of the same substation.")
+    logger.info("Merging buses of the same substation.")
     # bus types (AC != DC)
     buses_all = buses.copy().reset_index(drop=True)
     stations_all = stations.copy().set_index("station_id")
@@ -741,10 +755,12 @@ def _remove_loops_from_multiline(multiline):
     This function iteratively removes closed loops from a MultiLineString geometry
     until no closed loops remain or a maximum of 5 iterations is reached.
 
-    Parameters:
+    Parameters
+    ----------
         - multiline (shapely.geometry.MultiLineString or shapely.geometry.LineString): The input geometry which may contain closed loops.
 
-    Returns:
+    Returns
+    -------
         - shapely.geometry.MultiLineString or shapely.geometry.LineString: The geometry with closed loops removed.
     """
     elements_initial = (
@@ -783,14 +799,16 @@ def _identify_linestring_between_polygons(
     This function takes a MultiLineString and two polygons, and identifies a LineString within the MultiLineString that touches both polygons.
     If no such LineString is found, the original MultiLineString is returned.
 
-    Parameters:
+    Parameters
+    ----------
         - multiline (shapely.geometry.MultiLineString or shapely.geometry.LineString): The input MultiLineString or LineString.
         - polygon0 (shapely.geometry.Polygon): The first polygon.
         - polygon1 (shapely.geometry.Polygon): The second polygon.
         - geo_crs (str or pyproj.CRS, optional): The geographic coordinate reference system. Default is GEO_CRS.
         - distance_crs (str or pyproj.CRS, optional): The distance coordinate reference system. Default is DISTANCE_CRS.
 
-    Returns:
+    Returns
+    -------
         - shapely.geometry.LineString or shapely.geometry.MultiLineString: The identified LineString that touches both polygons, or the original MultiLineString if no such LineString is found.
     """
     list_lines = (
@@ -833,7 +851,8 @@ def _map_endpoints_to_buses(
     """
     Maps the endpoints of lines to buses based on spatial relationships.
 
-    Parameters:
+    Parameters
+    ----------
         - connection (GeoDataFrame): GeoDataFrame containing the line connections.
         - buses (GeoDataFrame): GeoDataFrame containing the bus information.
         - shape (str, optional): The shape type to use for mapping. Default is "station_polygon".
@@ -842,7 +861,8 @@ def _map_endpoints_to_buses(
         - distance_crs (CRS, optional): Coordinate reference system for distance calculations. Default is DISTANCE_CRS.
         - geo_crs (CRS, optional): Coordinate reference system for geographic data. Default is GEO_CRS.
 
-    Returns:
+    Returns
+    -------
         - GeoDataFrame: Updated GeoDataFrame with mapped endpoints and filtered lines.
     """
     logger.info("Mapping endpoints of lines to buses.")
@@ -973,11 +993,13 @@ def _add_point_to_line(linestring, point):
     Adds the bus coordinate to a linestring by extending the linestring with a
     new segment.
 
-    Parameters:
+    Parameters
+    ----------
         - linestring (LineString): The original linestring to extend.
         - point (Point): The shapely.Point of the bus.
 
-    Returns:
+    Returns
+    -------
         - merged (LineString): The extended linestring with the new segment.
     """
     start = linestring.boundary.geoms[0]
@@ -1004,11 +1026,13 @@ def _extend_lines_to_buses(connection, buses):
     at both ends (bus0 and bus1). The resulting DataFrame will have updated geometries
     that include these bus points.
 
-    Parameters:
+    Parameters
+    ----------
         - connection (pd.DataFrame): DataFrame containing the lines/links with their geometries.
         - buses (pd.DataFrame): DataFrame containing the bus points with their geometries.
 
-    Returns:
+    Returns
+    -------
         - pd.DataFrame: DataFrame with updated geometries for the lines/links, including the bus points.
     """
     lines_all = connection.copy()
@@ -1052,13 +1076,15 @@ def _determine_bus_capacity(buses, lines, voltages, line_types):
     """
     Determines the bus capacity based on the sum of connected line capacities.
 
-    Parameters:
+    Parameters
+    ----------
         - buses (pd.DataFrame): DataFrame containing bus information.
         - lines (pd.DataFrame): DataFrame containing line information.
         - voltages (list): List of voltage levels based on config file.
         - line_types (dict): Dictionary mapping voltage levels to line types based on config file.
 
-    Returns:
+    Returns
+    -------
         - buses_all (pd.DataFrame): Containing the updated bus information with calculated capacities.
     """
     logger.info("Determining total capacity of connected lines for each bus.")
@@ -1102,11 +1128,13 @@ def _add_transformers(buses, geo_crs=GEO_CRS):
     - Assigns unique transformer IDs based on station ID and voltage levels.
     - Calculates the capacity of transformers based on the maximum capacity of connected buses.
 
-    Parameters:
+    Parameters
+    ----------
         - buses (GeoDataFrame): A GeoDataFrame containing bus information with columns including 'bus_id', 'station_id', 'voltage', and 'geometry'.
         - geo_crs (CRS, optional): Coordinate reference system for the GeoDataFrame. Defaults to GEO_CRS.
 
-    Returns:
+    Returns
+    -------
         - GeoDataFrame: A GeoDataFrame containing the added transformers with columns including 'transformer_id' and TRANSFORMERS_COLUMNS.
     """
     buses_all = buses.copy().set_index("bus_id")
@@ -1183,7 +1211,8 @@ def _add_dc_buses(
     """
     Adds DC buses to the network and mapping them to the nearest AC buses.
 
-    Parameters:
+    Parameters
+    ----------
         - converters_polygon (GeoDataFrame): GeoDataFrame containing the polygons of the DC converters.
         - links (GeoDataFrame): GeoDataFrame containing the links in the network.
         - buses (GeoDataFrame): GeoDataFrame containing the AC buses in the network.
@@ -1191,7 +1220,8 @@ def _add_dc_buses(
         - distance_crs (CRS, optional): Coordinate reference system for distance calculations. Defaults to DISTANCE_CRS.
         - geo_crs (CRS, optional): Coordinate reference system for geographic calculations. Defaults to GEO_CRS.
 
-    Returns:
+    Returns
+    -------
         - GeoDataFrame: A GeoDataFrame containing the DC buses with their corresponding PoI and mapped to the nearest AC bus.
     """
     dc_buses = converters_polygon.copy()
@@ -1261,12 +1291,14 @@ def _map_links_to_dc_buses(links, dc_buses, distance_crs=DISTANCE_CRS):
     """
     Maps links to DC buses based on geographical proximity and updates DC bus attributes.
 
-    Parameters:
+    Parameters
+    ----------
         - links (GeoDataFrame): GeoDataFrame containing link geometries and attributes.
         - dc_buses (GeoDataFrame): GeoDataFrame containing DC bus geometries and attributes.
         - distance_crs (CRS, optional): Coordinate reference system to use for distance calculations. Defaults to DISTANCE_CRS.
 
-    Returns:
+    Returns
+    -------
         - tuple: A tuple containing:
             - links_all (GeoDataFrame): Updated GeoDataFrame of links with mapped DC buses.
             - dc_buses_all (GeoDataFrame): Updated GeoDataFrame of DC buses with additional attributes.
@@ -1325,7 +1357,7 @@ def _map_links_to_dc_buses(links, dc_buses, distance_crs=DISTANCE_CRS):
     dc_buses_all.reset_index(inplace=True)
 
     logger.info(
-        f"Mapped {len(links_all)} links to {len(dc_buses_all)} DC buses. Dropping {len(dc_buses)-len(dc_buses_all)} DC buses."
+        f"Mapped {len(links_all)} links to {len(dc_buses_all)} DC buses. Dropping {len(dc_buses) - len(dc_buses_all)} DC buses."
     )
 
     return links_all, dc_buses_all
@@ -1338,11 +1370,13 @@ def _add_converter_links(dc_buses, buses):
     links (converters) between them. It filters out DC buses that do not have an associated
     AC bus, renames columns for clarity, and constructs geometries for the links.
 
-    Parameters:
+    Parameters
+    ----------
         - dc_buses (pd.DataFrame): DataFrame containing DC bus information.
         - buses (pd.DataFrame): DataFrame containing AC bus information.
 
-    Returns:
+    Returns
+    -------
         - pd.DataFrame: DataFrame containing the converter links.
     """
     logger.info("Adding converter links between DC buses and AC buses.")
@@ -1380,11 +1414,13 @@ def _closest_voltage(voltage, voltage_list):
     """
     Returns the closest voltage from a list of voltages to a given voltage.
 
-    Parameters:
+    Parameters
+    ----------
         - voltage (float): The source voltage.
         - voltage_list (list): List of voltages to compare against.
 
-    Returns:
+    Returns
+    -------
         - float: The closest voltage to the source voltage
     """
     return min(voltage_list, key=lambda x: abs(x - voltage))
@@ -1394,14 +1430,16 @@ def _finalise_network(all_buses, converters, lines, links, transformers):
     """
     Finalises network components and prepares for export.
 
-    Parameters:
+    Parameters
+    ----------
         - buses (pd.DataFrame): DataFrame containing bus information.
         - converters (pd.DataFrame): DataFrame containing converter information.
         - lines (pd.DataFrame): DataFrame containing line information.
         - links (pd.DataFrame): DataFrame containing link information.
         - transformers (pd.DataFrame): DataFrame containing transformer information.
 
-    Returns:
+    Returns
+    -------
         - tuple: A tuple containing the updated DataFrames for buses, converters, lines, links, and transformers
     """
     logger.info("Finalising network components and preparing for export.")
@@ -1429,7 +1467,7 @@ def _finalise_network(all_buses, converters, lines, links, transformers):
     lines_all["voltage"] = lines_all["voltage"] / 1000
     lines_all["length"] = lines_all["length"].round(2)
     lines_all["under_construction"] = False
-    lines_all["tags"] = lines_all["contains_lines"]
+    lines_all["tags"] = lines_all["contains_lines"].apply(lambda x: ";".join(x))
     lines_all["underground"] = lines_all["underground"].replace({True: "t", False: "f"})
     lines_all["under_construction"] = lines_all["under_construction"].replace(
         {True: "t", False: "f"}
@@ -1581,17 +1619,38 @@ def build_network(
     lines["length"] = lines.to_crs(DISTANCE_CRS).length
     links["length"] = links.to_crs(DISTANCE_CRS).length
 
+    # Shapes
+    stations_polygon = stations[["station_id", "geometry"]].copy()
+    all_buses_polygon = buses_polygon.copy()
+    all_buses_polygon["dc"] = False
+    all_buses_polygon = pd.concat(
+        [
+            all_buses_polygon,
+            dc_buses[["bus_id", "polygon", "dc"]].rename(
+                columns={"polygon": "geometry"}
+            ),
+        ]
+    )
+
     ### Saving outputs to PyPSA-compatible format
     buses_final, converters_final, lines_final, links_final, transformers_final = (
         _finalise_network(all_buses, converters, lines, links, transformers)
     )
 
-    return buses_final, converters_final, lines_final, links_final, transformers_final
+    return (
+        buses_final,
+        converters_final,
+        lines_final,
+        links_final,
+        transformers_final,
+        stations_polygon,
+        all_buses_polygon,
+    )
 
 
 if __name__ == "__main__":
     if "snakemake" not in globals():
-        from _helpers import mock_snakemake
+        from scripts._helpers import mock_snakemake
 
         snakemake = mock_snakemake("build_osm_network")
 
@@ -1604,16 +1663,18 @@ if __name__ == "__main__":
     country_shapes = gpd.read_file(snakemake.input["country_shapes"]).set_index("name")
 
     # Build network
-    buses, converters, lines, links, transformers = build_network(
-        snakemake.input,
-        country_shapes,
-        voltages,
-        line_types,
+    buses, converters, lines, links, transformers, stations_polygon, buses_polygon = (
+        build_network(
+            snakemake.input,
+            country_shapes,
+            voltages,
+            line_types,
+        )
     )
 
     # Export to csv for base_network
     buses.to_csv(snakemake.output["substations"], quotechar="'")
-    lines.drop(columns=["tags"]).to_csv(snakemake.output["lines"], quotechar="'")
+    lines.to_csv(snakemake.output["lines"], quotechar="'")
     links.to_csv(snakemake.output["links"], quotechar="'")
     converters.to_csv(snakemake.output["converters"], quotechar="'")
     transformers.to_csv(snakemake.output["transformers"], quotechar="'")
@@ -1624,3 +1685,7 @@ if __name__ == "__main__":
     links.to_file(snakemake.output["links_geojson"])
     converters.to_file(snakemake.output["converters_geojson"])
     transformers.to_file(snakemake.output["transformers_geojson"])
+
+    # Export polygons for visualisation
+    stations_polygon.to_file(snakemake.output["stations_polygon"])
+    buses_polygon.to_file(snakemake.output["buses_polygon"])
