@@ -579,3 +579,9 @@ plotting:
     import NH3: '#e2ed74'
     import oil: '#93eda2'
     import methanol: '#87d0e6'
+
+    #other
+    electrolysis_waste_heat heat direct utilisation: '#000000'
+    heat direct utilisation: 'olive'
+    district heating pipeline: 'navy'
+

@@ -511,6 +511,8 @@ rule build_direct_heat_source_utilisation_profiles:
         limited_heat_sources=config_provider(
             "sector", "district_heating", "limited_heat_sources"
         ),
+        electrolysis_waste_temp=config_provider("sector","district_heating","electrolysis_waste_heat_constant_temperature_celsius"
+        ),
         snapshots=config_provider("snapshots"),
     input:
         central_heating_forward_temperature_profiles=resources(

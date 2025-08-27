@@ -2893,7 +2893,6 @@ def add_heat(
             carrier=f"{heat_system.value} heat",
             unit="MWh_th",
         )
-
         # if heat_system == HeatSystem.URBAN_CENTRAL and options["central_heat_vent"]:
         if options["heat_vent"][heat_system.system_type.value]:
             n.add(
@@ -5417,6 +5416,7 @@ def add_electrolysis_waste_heat(n: pypsa.Network,
     urban_central = n.buses.index[n.buses.carrier == "urban central heat"].str.replace(" urban central heat", "")
     link_carriers = n.links.carrier.unique()
     hertz_buses = n.buses[n.buses.carrier == "AC"].loc[lambda df: df.index.str.contains("Hertz")]
+    electrolysis_potentials = electrolysis_potentials.fillna(0)
 
     def set_electrolysis_potential(bus):
         if bus in electrolysis_potentials.name.values:
@@ -5438,14 +5438,20 @@ def add_electrolysis_waste_heat(n: pypsa.Network,
                   location=bus)
 
     def add_booster_heat_pump(bus):
-        cop_val = cop.sel(heat_system="urban central",
-                          heat_source="electrolysis_waste_heat",
-                          name=bus).to_pandas().reindex(n.snapshots)
+        cop_val = (
+            cop.sel(heat_system="urban central",
+                    heat_source="electrolysis_waste_heat",
+                    name=pd.Index([bus], name="name")
+            )
+            .to_pandas()
+            .reindex(index=n.snapshots)
+        ).squeeze()
+
+        cop_val.name=f"{bus} electrolysis booster heat pump"
 
         costs_name = "central excess-heat-sourced heat pump"
         overdim = options["overdimension_heat_generators"][HeatSystem.URBAN_CENTRAL.central_or_decentral]
-        capital_cost = costs.at[costs_name, "efficiency"] * costs.at[costs_name, "fixed"] * overdim
-
+        capital_cost = costs.at[costs_name, "efficiency"] * costs.at[costs_name, "capital_cost"] * overdim
         n.add("Link",
               f"{bus} electrolysis booster heat pump",
               bus0=bus,
@@ -5462,7 +5468,6 @@ def add_electrolysis_waste_heat(n: pypsa.Network,
         eff = direct_heat_source_utilisation_profile.sel(
             heat_source="electrolysis_waste_heat", name=bus
         ).to_pandas().reindex(n.snapshots)
-
         n.add("Link",
               f"{bus} heat direct utilisation",
               bus0=f"{bus} electrolysis waste heat",
@@ -5471,6 +5476,9 @@ def add_electrolysis_waste_heat(n: pypsa.Network,
               efficiency=eff,
               p_nom_extendable=True)
 
+    for bus in electrolysis_potentials.name.values:
+        set_electrolysis_potential(bus)
+
     for bus in urban_central:
         electrolysis_name = f"{bus} H2 Electrolysis"
 
@@ -5478,10 +5486,6 @@ def add_electrolysis_waste_heat(n: pypsa.Network,
             continue
 
         is_hertz = bus in hertz_buses.index
-
-        if options["electrolysis_potential_analysis"] and bus in electrolysis_potentials.name :
-
-            set_electrolysis_potential(bus)
 
         if options["use_electrolysis_waste_heat"] == 1 and "H2 Electrolysis" in link_carriers and is_hertz:
             if bus in electrolysis_potentials.name.values:
@@ -5530,6 +5534,8 @@ def add_electrolysis_waste_heat(n: pypsa.Network,
             base_eff = 0.84 - n.links.at[electrolysis_name, "efficiency"]
             factor = options["use_electrolysis_waste_heat"] if is_hertz else 0.25
             n.links.loc[electrolysis_name, "efficiency2"] = base_eff * factor
+
+    #breakpoint()
 
 def add_agriculture(
     n: pypsa.Network,

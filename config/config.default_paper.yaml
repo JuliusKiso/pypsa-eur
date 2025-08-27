@@ -17,13 +17,13 @@ remote:
 # docs in https://pypsa-eur.readthedocs.io/en/latest/configuration.html#run
 run:
   prefix: ""
-  name: ""
+  name: "reference"
   scenarios:
     enable: false
     file: config/scenarios.yaml
   disable_progressbar: false
   shared_resources:
-    policy: false
+    policy: true
     exclude: []
   shared_cutouts: true
   use_shadow_directory: false
@@ -35,7 +35,7 @@ foresight: overnight
 # Wildcard docs in https://pypsa-eur.readthedocs.io/en/latest/wildcards.html
 scenario:
   clusters:
-  - 50
+  - 56
   opts:
   - ''
   sector_opts:
@@ -45,40 +45,16 @@ scenario:
 
 # docs in https://pypsa-eur.readthedocs.io/en/latest/configuration.html#countries
 countries:
-- AL
 - AT
-- BA
 - BE
-- BG
 - CH
 - CZ
 - DE
 - DK
-- EE
-- ES
-- FI
-- FR
-- GB
-- GR
-- HR
-- HU
-- IE
-- IT
-- LT
-- LU
-- LV
-- ME
-- MK
-- NL
-- 'NO'
 - PL
-- PT
-- RO
-- RS
-- SE
-- SI
-- SK
-- XK
+- NL
+- FR
+- LU
 
 # docs in https://pypsa-eur.readthedocs.io/en/latest/configuration.html#snapshots
 snapshots:
@@ -543,18 +519,23 @@ sector:
       geothermal:
         constant_temperature_celsius: 65
         ignore_missing_regions: false
+    electrolysis_waste_heat_constant_temperature_celsius: 65
     direct_utilisation_heat_sources:
+    - electrolysis_waste_heat
     - geothermal
     temperature_limited_stores:
     - ptes
   heat_pump_sources:
     urban central:
+    - electrolysis_waste_heat
     - air
     urban decentral:
     - air
     rural:
     - air
     - ground
+  electrolysis_distance_to_district_heating: 0
+  waste_heat_costs: 0 #€/MW
   cluster_heat_buses: true
   heat_demand_cutout: default
   bev_dsm_restriction_value: 0.8
@@ -690,7 +671,7 @@ sector:
   regional_oil_demand: true
   regional_coal_demand: false
   regional_co2_sequestration_potential:
-    enable: true
+    enable: false #true
     attribute:
     - conservative estimate Mt
     - conservative estimate GAS Mt
@@ -707,11 +688,11 @@ sector:
     2035: 100
     2040: 180
     2045: 250
-    2050: 250
+    2050: 109 #200 * 0.5443 (population factor)
   co2_sequestration_cost: 30
   co2_sequestration_lifetime: 50
-  co2_spatial: true
-  co2_network: true
+  co2_spatial: false #true
+  co2_network: false #true
   co2_network_cost_factor: 1
   cc_fraction: 0.9
   hydrogen_underground_storage: true
@@ -740,7 +721,12 @@ sector:
   use_methanolisation_waste_heat: 0.25
   use_methanation_waste_heat: 0.25
   use_fuel_cell_waste_heat: 1
-  use_electrolysis_waste_heat: 0.25
+  use_electrolysis_waste_heat: 1
+  electrolysis_potential_analysis: true
+  electrolysis_capacity_constraint: true
+  dac_capacity_constraint: true
+  min_waste_heat: false
+  transmission_limit_50hertz: false
   electricity_transmission_grid: true
   electricity_distribution_grid: true
   electricity_grid_connection: true
@@ -911,7 +897,7 @@ industry:
 
 # docs in https://pypsa-eur.readthedocs.io/en/latest/configuration.html#costs
 costs:
-  year: 2050
+  year: 2030 #2050
   version: v0.13.2
   social_discountrate: 0.02
   fill_values:
@@ -944,7 +930,7 @@ costs:
 
 # docs in https://pypsa-eur.readthedocs.io/en/latest/configuration.html#clustering
 clustering:
-  mode: busmap
+  mode: custom_busmap
   administrative:
     level: 1
   focus_weights: false
@@ -970,7 +956,7 @@ clustering:
       ramp_limit_down: max
   temporal:
     resolution_elec: false
-    resolution_sector: false
+    resolution_sector: "200H"
 
 # docs in https://pypsa-eur.readthedocs.io/en/latest/configuration.html#adjustments
 adjustments:

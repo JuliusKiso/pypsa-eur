@@ -1140,6 +1140,35 @@ def add_transmission_limit_50hertz(n, limit_factor):
     n.model.add_constraints(lhs <= rhs, name="transmission_capacity_limit_50Hertz")
     print(f"Added transmission expansion limit for 50Hertz: maximum {limit_factor} times the existing capacity-length product.")
 
+def add_transmission_limit_dk(n, limit_factor):
+    # Identify AC lines within or connecting to the 50Hertz region
+    dk_lines = n.lines[
+        n.lines.bus0.str.contains("DE") & n.lines.bus1.str.contains("DK")
+        ].index
+
+    # Identify DC links within or connecting to the 50Hertz region
+    dk_links_dc = n.links[
+        (n.links.carrier == "DC") & (
+                n.links.bus0.str.contains("DE") & n.links.bus1.str.contains("DK")
+        )].index
+
+    # Define the right-hand side (rhs) of the constraint
+    rhs = limit_factor
+    # Define the left-hand side (lhs) of the constraint for AC lines
+    lhs_ac = sum(n.model["Line-s_nom"][i] for i in dk_lines)
+
+    # Define the left-hand side (lhs) of the constraint for DC links
+    lhs_dc = sum(n.model["Link-p_nom"][i] for i in dk_links_dc)
+
+
+    # Combine lhs for AC lines and DC links
+    lhs = lhs_ac + lhs_dc
+    # Add the constraint to the model
+    n.model.add_constraints(lhs <= rhs, name="transmission_capacity_limit_DK")
+    print(
+        f"Added transmission expansion limit for DK<->DE: maximum {limit_factor}.")
+
+
 def add_chp_constraints(n):
     electric = (
         n.links.index.str.contains("urban central")
@@ -1354,6 +1383,7 @@ def extra_functionality(
         add_electrolysis_50hertz_constraint(n)
     if config["sector"]["dac_capacity_constraint"]:
         add_dac_50hertz_constraint(n)
+    add_transmission_limit_dk(n, 15000)
     #if config["sector"]["min_waste_heat"] != 0:
     #    add_min_waste_heat_constraint(n)
     if config["sector"]["transmission_limit_50hertz"]:
